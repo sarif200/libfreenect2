@@ -14,7 +14,8 @@
 #include <libfreenect2/logger.h>
 
 bool protonect_shutdown = false;
-int v4l2_fd = -1;
+int v4l2_color = -1;
+int v4l2_depth = -1;
 
 void sigint_handler(int s)
 {
@@ -23,8 +24,8 @@ void sigint_handler(int s)
 
 bool init_v4l2_device(const char *device, int width, int height)
 {
-  v4l2_fd = open(device, O_WRONLY);
-  if (v4l2_fd < 0)
+  v4l2_color = open(device, O_WRONLY);
+  if (v4l2_color < 0)
   {
     std::cerr << "Error opening v4l2loopback device: " << strerror(errno) << std::endl;
     return false;
@@ -39,11 +40,11 @@ bool init_v4l2_device(const char *device, int width, int height)
   v4l2_fmt.fmt.pix.sizeimage = width * height * 3;
   v4l2_fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
-  if (ioctl(v4l2_fd, VIDIOC_S_FMT, &v4l2_fmt) < 0)
+  if (ioctl(v4l2_color, VIDIOC_S_FMT, &v4l2_fmt) < 0)
   {
     std::cerr << "Error setting v4l2 format: " << strerror(errno) << std::endl;
-    close(v4l2_fd);
-    v4l2_fd = -1;
+    close(v4l2_color);
+    v4l2_color = -1;
     return false;
   }
 
@@ -52,14 +53,14 @@ bool init_v4l2_device(const char *device, int width, int height)
 
 void write_frame_to_v4l2(unsigned char *rgb_data, int width, int height)
 {
-  if (v4l2_fd < 0)
+  if (v4l2_color < 0)
     return;
 
   cv::Mat frame(height, width, CV_8UC4, rgb_data);
   cv::Mat bgr_frame;
   cv::cvtColor(frame, bgr_frame, cv::COLOR_BGRA2BGR);
 
-  write(v4l2_fd, bgr_frame.data, width * height * 3);
+  write(v4l2_color, bgr_frame.data, width * height * 3);
 }
 
 int main(int argc, char *argv[])
@@ -119,6 +120,6 @@ int main(int argc, char *argv[])
 
   dev->stop();
   dev->close();
-  close(v4l2_fd);
+  close(v4l2_color);
   return 0;
 }
