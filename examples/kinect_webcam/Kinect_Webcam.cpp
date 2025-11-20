@@ -22,10 +22,10 @@ void sigint_handler(int s)
   protonect_shutdown = true;
 }
 
-bool init_v4l2_device(const char *device, int width, int height)
+bool init_v4l2_device(const char *device, int width, int height,int* stream)
 {
-  v4l2_color = open(device, O_WRONLY);
-  if (v4l2_color < 0)
+  *stream = open(device, O_WRONLY);
+  if (*stream < 0)
   {
     std::cerr << "Error opening v4l2loopback device: " << strerror(errno) << std::endl;
     return false;
@@ -40,12 +40,11 @@ bool init_v4l2_device(const char *device, int width, int height)
   v4l2_fmt.fmt.pix.sizeimage = width * height * 3;
   v4l2_fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
-  if (ioctl(v4l2_color, VIDIOC_S_FMT, &v4l2_fmt) < 0)
+  if (ioctl(*stream, VIDIOC_S_FMT, &v4l2_fmt) < 0)
   {
     std::cerr << "Error setting v4l2 format: " << strerror(errno) << std::endl;
-    close(v4l2_color);
-    v4l2_color = -1;
-    return false;
+    close(*stream);
+    return -1;
   }
 
   return true;
@@ -69,9 +68,16 @@ int main(int argc, char *argv[])
   libfreenect2::Freenect2Device *dev = nullptr;
   libfreenect2::PacketPipeline *pipeline = nullptr;
 
-  if (!init_v4l2_device("/dev/video10", 1920, 1080))
+  
+  if (!init_v4l2_device("/dev/video10", 1920, 1080,&v4l2_color) < 0)
   {
     std::cerr << "Failed to initialize v4l2loopback device" << std::endl;
+    return -1;
+  }
+
+  if (!init_v4l2_device("/dev/video10", 1920, 1080,&v4l2_depth) < 0)
+  {
+    std::cerr << "Failed to initialize v4l2loopback-depth device" << std::endl;
     return -1;
   }
 
@@ -92,7 +98,7 @@ int main(int argc, char *argv[])
   }
 
   signal(SIGINT, sigint_handler);
-
+  
   libfreenect2::SyncMultiFrameListener listener(libfreenect2::Frame::Color);
   libfreenect2::FrameMap frames;
 
